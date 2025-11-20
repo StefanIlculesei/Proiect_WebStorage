@@ -1,2 +1,41 @@
 .github/*
 info.txt
+
+# .NET build outputs
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Test results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# Migration files should be tracked
+!**/Migrations/*.cs
+!**/Migrations/*.Designer.cs

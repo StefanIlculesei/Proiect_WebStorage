@@ -1,37 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Identity;
 
 namespace LibrarieModele.Models
 {
-    [Table("users")]
-    public class User
+    [Table("AspNetUsers")]
+    public class User : IdentityUser<int>
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        [Column("id")]
-        public int Id { get; set; }
-
-        [Required]
-        [MaxLength(100)]
-        [Column("username")]
-        public string Username { get; set; } = string.Empty;
-
-        [Required]
-        [MaxLength(255)]
-        [Column("email")]
-        public string Email { get; set; } = string.Empty;
-
-        [Required]
-        [MaxLength(255)]
-        [Column("password_hash")]
-        public string PasswordHash { get; set; } = string.Empty;
-
         [Column("storage_used")]
         public long StorageUsed { get; set; } = 0;
 
-        [MaxLength(50)]
         [Column("role")]
         public string Role { get; set; } = "user";
 
