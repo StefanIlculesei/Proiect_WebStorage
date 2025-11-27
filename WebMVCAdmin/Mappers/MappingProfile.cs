@@ -32,6 +32,36 @@ namespace WebMVCAdmin.Mappers
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore());
+
+            // User -> UserViewModel
+            CreateMap<User, UserViewModel>()
+                .ForMember(dest => dest.StorageUsedBytes, opt => opt.MapFrom(src => src.StorageUsed))
+                .ForMember(dest => dest.StorageUsedFormatted, opt => opt.MapFrom(src => FormatBytes(src.StorageUsed)))
+                .ForMember(dest => dest.SubscriptionCount, opt => opt.MapFrom(src => src.Subscriptions != null ? src.Subscriptions.Count : 0));
+
+            // User -> EditUserViewModel
+            CreateMap<User, EditUserViewModel>();
+
+            // EditUserViewModel -> User
+            CreateMap<EditUserViewModel, User>()
+                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
+                .ForMember(dest => dest.SecurityStamp, opt => opt.Ignore())
+                .ForMember(dest => dest.ConcurrencyStamp, opt => opt.Ignore());
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+            int counter = 0;
+            decimal number = (decimal)bytes;
+            while (Math.Round(number / 1024) >= 1)
+            {
+                number = number / 1024;
+                counter++;
+            }
+            return string.Format("{0:n1} {1}", number, suffixes[counter]);
         }
     }
 }
