@@ -1,0 +1,79 @@
+@model WebMVC_Plans.Models.PlanViewModel
+
+@{
+    ViewData["Title"] = "Plan Details";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Plan Details</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+</head>
+<body>
+    <div class="container mt-5">
+        @if (Model != null)
+        {
+            <h1>Plan Details</h1>
+            <hr />
+            
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <th width="30%">ID</th>
+                        <td>@Model.Id</td>
+                    </tr>
+                    <tr>
+                        <th>Name</th>
+                        <td>@Model.Name</td>
+                    </tr>
+                    <tr>
+                        <th>Price</th>
+                        <td>@Model.Price.ToString("N2") @Model.Currency</td>
+                    </tr>
+                    <tr>
+                        <th>Billing Period</th>
+                        <td>@(Model.BillingPeriod ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <th>Storage Limit</th>
+                        <td>@Model.LimitSizeGB.ToString("N2") GB</td>
+                    </tr>
+                    <tr>
+                        <th>Max File Size</th>
+                        <td>@Model.MaxFileSizeMB.ToString("N2") MB</td>
+                    </tr>
+                    <tr>
+                        <th>Total Subscribers</th>
+                        <td>@Model.SubscriptionCount</td>
+                    </tr>
+                    @if (Model.CreatedAt.HasValue)
+                    {
+                        <tr>
+                            <th>Created At</th>
+                            <td>@Model.CreatedAt.Value.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                    @if (Model.UpdatedAt.HasValue)
+                    {
+                        <tr>
+                            <th>Updated At</th>
+                            <td>@Model.UpdatedAt.Value.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <a asp-action="Index" class="btn btn-primary">Back to List</a>
+        }
+        else
+        {
+            <div class="alert alert-danger">
+                Plan not found.
+            </div>
+            <a asp-action="Index" class="btn btn-primary">Back to List</a>
+        }
+    </div>
+</body>
+</html>

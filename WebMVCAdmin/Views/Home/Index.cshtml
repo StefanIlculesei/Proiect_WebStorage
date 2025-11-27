@@ -1,0 +1,29 @@
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome to WebStorage Admin</h1>
+    <p>Manage your application settings, plans, and subscriptions.</p>
+
+    <div class="row mt-5">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Plans Management</h5>
+                    <p class="card-text">Create, edit, and view storage plans.</p>
+                    <a asp-controller="Plans" asp-action="Index" class="btn btn-primary">Manage Plans</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Subscriptions Management</h5>
+                    <p class="card-text">View and manage user subscriptions.</p>
+                    <a asp-controller="Subscriptions" asp-action="Index" class="btn btn-primary">Manage Subscriptions</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

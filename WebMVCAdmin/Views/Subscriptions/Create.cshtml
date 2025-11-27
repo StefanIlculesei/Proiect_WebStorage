@@ -1,0 +1,54 @@
+@model WebMVC_Plans.Models.CreateSubscriptionViewModel
+
+@{
+    ViewData["Title"] = "Create Subscription";
+}
+
+<h1 class="h3 mb-3"><i class="bi bi-plus-circle me-2"></i>Create Subscription</h1>
+
+<form asp-action="Create" method="post" class="card p-3">
+    <div class="mb-3">
+        <label asp-for="UserId" class="form-label"></label>
+        <select asp-for="UserId" class="form-select" asp-items="Model.Users">
+            <option value="">-- Select user --</option>
+        </select>
+        <span asp-validation-for="UserId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="PlanId" class="form-label"></label>
+        <select asp-for="PlanId" class="form-select" asp-items="Model.Plans">
+            <option value="">-- Select plan --</option>
+        </select>
+        <span asp-validation-for="PlanId" class="text-danger"></span>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="StartDate" class="form-label"></label>
+            <input asp-for="StartDate" class="form-control" type="datetime-local" asp-format="yyyy-MM-ddTHH\:mm" />
+            <span asp-validation-for="StartDate" class="text-danger"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="EndDate" class="form-label"></label>
+            <input asp-for="EndDate" class="form-control" type="datetime-local" asp-format="yyyy-MM-ddTHH\:mm" />
+            <span asp-validation-for="EndDate" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" asp-for="AutoRenew" />
+        <label class="form-check-label" asp-for="AutoRenew"></label>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i> Save
+        </button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
