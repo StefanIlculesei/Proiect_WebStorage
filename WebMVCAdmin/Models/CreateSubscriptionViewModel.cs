@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
+using WebMVCAdmin.Binders;
 
 namespace WebMVC_Plans.Models
 {
@@ -16,9 +18,11 @@ namespace WebMVC_Plans.Models
         public int PlanId { get; set; }
 
         [Display(Name = "Start Date")]
+        [ModelBinder(BinderType = typeof(IsoDateTimeModelBinder))]
         public DateTime? StartDate { get; set; } = DateTime.UtcNow;
 
         [Display(Name = "End Date")]
+        [ModelBinder(BinderType = typeof(IsoDateTimeModelBinder))]
         public DateTime? EndDate { get; set; }
 
         [Display(Name = "Auto Renew")]
