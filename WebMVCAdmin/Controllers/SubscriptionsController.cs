@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.Globalization;
 using DataAccessLayer.Accessors;
 using WebMVC_Plans.Models;
@@ -8,6 +9,7 @@ using AutoMapper;
 namespace WebMVC_Plans.Controllers
 {
 
+    [Authorize(Policy = "AdminOnly")]
     [Route("[controller]")]
     public class SubscriptionsController : Controller
     {

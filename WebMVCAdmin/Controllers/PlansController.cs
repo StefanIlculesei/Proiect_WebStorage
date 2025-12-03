@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using DataAccessLayer.Accessors;
 using WebMVC_Plans.Models;
 using ModelLibrary.Models;
@@ -7,6 +8,7 @@ using AutoMapper;
 namespace WebMVC_Plans.Controllers
 {
 
+    [Authorize(Policy = "AdminOnly")]
     public class PlansController : Controller
     {
         private readonly PlanAccessor _accesorPlan;
