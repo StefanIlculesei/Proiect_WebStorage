@@ -1,0 +1,71 @@
+@model WebMVC_Plans.Models.PlanViewModel
+
+@{
+    ViewData["Title"] = "Create Plan";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Plan</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Create New Plan</h1>
+        <hr />
+
+        <form asp-action="Create" method="post">
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="LimitSizeGB" class="form-label"></label>
+                <input asp-for="LimitSizeGB" class="form-control" type="number" step="0.01" />
+                <span asp-validation-for="LimitSizeGB" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="MaxFileSizeMB" class="form-label"></label>
+                <input asp-for="MaxFileSizeMB" class="form-control" type="number" step="0.01" />
+                <span asp-validation-for="MaxFileSizeMB" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Price" class="form-label"></label>
+                <input asp-for="Price" class="form-control" type="number" step="0.01" />
+                <span asp-validation-for="Price" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Currency" class="form-label"></label>
+                <input asp-for="Currency" class="form-control" />
+                <span asp-validation-for="Currency" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="BillingPeriod" class="form-label"></label>
+                <select asp-for="BillingPeriod" class="form-control">
+                    <option value="">-- Select Billing Period --</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+                <span asp-validation-for="BillingPeriod" class="text-danger"></span>
+            </div>
+
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+</body>
+</html>

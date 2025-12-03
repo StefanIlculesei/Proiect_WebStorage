@@ -32,5 +32,14 @@ namespace DataAccessLayer.Accessors
                 .Where(s => s.IsActive && s.EndDate.HasValue && s.EndDate.Value <= beforeDate)
                 .ToListAsync(cancellationToken);
         }
+
+        public async Task<Dictionary<int, int>> GetActiveCountsByPlanIdsAsync(List<int> planIds, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Where(s => s.IsActive && planIds.Contains(s.PlanId))
+                .GroupBy(s => s.PlanId)
+                .Select(g => new { PlanId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.PlanId, x => x.Count, cancellationToken);
+        }
     }
 }

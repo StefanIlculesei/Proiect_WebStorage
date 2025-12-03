@@ -1,0 +1,39 @@
+@model WebMVC_Plans.Models.UserViewModel
+
+@{
+    ViewData["Title"] = "User Details";
+}
+
+<h1 class="h3 mb-3"><i class="bi bi-person-badge me-2"></i>User Details</h1>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">@Model.UserName</h5>
+    </div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Email)</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.Email)</dd>
+
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Role)</dt>
+            <dd class="col-sm-9">
+                <span class="badge bg-@(Model.Role == "admin" ? "danger" : "primary")">
+                    @Html.DisplayFor(model => model.Role)
+                </span>
+            </dd>
+
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.StorageUsedFormatted)</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.StorageUsedFormatted) <small class="text-muted">(@Model.StorageUsedBytes bytes)</small></dd>
+
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.CreatedAt)</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.CreatedAt)</dd>
+
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.UpdatedAt)</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.UpdatedAt)</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to List</a>
+    </div>
+</div>
