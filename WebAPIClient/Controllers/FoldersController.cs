@@ -126,5 +126,50 @@ namespace WebAPIClient.Controllers
 
             return NoContent();
         }
+
+        [HttpGet("{id}/contents")]
+        public async Task<IActionResult> GetFolderContents(int id)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var folder = await _folderAccessor.GetWithSubFoldersAsync(id);
+
+            if (folder == null || folder.UserId != userId)
+            {
+                return NotFound(new { Message = "Folder not found" });
+            }
+
+            var folderWithFiles = await _folderAccessor.GetWithFilesAsync(id);
+            var response = _mapper.Map<FolderContentsResponse>(folderWithFiles);
+            response.SubFolders = _mapper.Map<List<FolderResponse>>(folder.SubFolders);
+
+            return Ok(response);
+        }
+
+        [HttpPatch("{id}/move")]
+        public async Task<IActionResult> MoveFolder(int id, [FromBody] MoveFolderRequest request)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var folder = await _folderAccessor.GetByIdAsync(id);
+
+            if (folder == null || folder.UserId != userId)
+            {
+                return NotFound(new { Message = "Folder not found" });
+            }
+
+            // Prevent moving folder into itself or its descendants
+            if (request.TargetParentFolderId == id)
+            {
+                return BadRequest(new { Message = "Cannot move folder into itself" });
+            }
+
+            folder.ParentFolderId = request.TargetParentFolderId;
+            folder.UpdatedAt = DateTime.UtcNow;
+
+            await _folderAccessor.UpdateAsync(folder);
+            await _folderAccessor.SaveChangesAsync();
+
+            var response = _mapper.Map<FolderResponse>(folder);
+            return Ok(response);
+        }
     }
 }

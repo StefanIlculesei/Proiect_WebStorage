@@ -30,6 +30,9 @@ namespace WebAPIClient.Mappers
             CreateMap<Folder, FolderResponse>();
             CreateMap<Folder, FolderTreeResponse>()
                 .ForMember(dest => dest.SubFolders, opt => opt.MapFrom(src => src.SubFolders));
+            CreateMap<Folder, FolderContentsResponse>()
+                .ForMember(dest => dest.SubFolders, opt => opt.Ignore())
+                .ForMember(dest => dest.Files, opt => opt.MapFrom(src => src.Files));
             CreateMap<FolderRequest, Folder>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))

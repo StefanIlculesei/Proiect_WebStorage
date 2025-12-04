@@ -79,5 +79,29 @@ namespace WebAPIClient.Controllers
 
             return Ok(response);
         }
+
+        [HttpGet("dashboard-stats")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+
+            if (user == null)
+            {
+                return NotFound(new { Message = "User not found" });
+            }
+
+            var response = new DashboardStatsResponse
+            {
+                StorageUsed = user.StorageUsed,
+                StorageLimit = 5368709120,
+                StoragePercentage = (int)((user.StorageUsed / (double)5368709120) * 100),
+                // These will be calculated by the frontend or added later with proper queries
+                TotalFiles = 0,
+                TotalFolders = 0
+            };
+
+            return Ok(response);
+        }
     }
 }

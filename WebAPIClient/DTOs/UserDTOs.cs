@@ -24,4 +24,13 @@ namespace WebAPIClient.DTOs
         public int TotalFiles { get; set; }
         public int TotalFolders { get; set; }
     }
+
+    public class DashboardStatsResponse
+    {
+        public long StorageUsed { get; set; }
+        public long StorageLimit { get; set; }
+        public int StoragePercentage { get; set; }
+        public int TotalFiles { get; set; }
+        public int TotalFolders { get; set; }
+    }
 }

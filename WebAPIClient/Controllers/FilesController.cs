@@ -189,5 +189,55 @@ namespace WebAPIClient.Controllers
             var response = _mapper.Map<IEnumerable<FileResponse>>(files);
             return Ok(response);
         }
+
+        [HttpPatch("{id}/move")]
+        public async Task<IActionResult> MoveFile(int id, [FromBody] MoveFileRequest request)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var file = await _fileAccessor.GetByIdAsync(id);
+
+            if (file == null || file.UserId != userId)
+            {
+                return NotFound(new { Message = "File not found" });
+            }
+
+            file.FolderId = request.TargetFolderId;
+            await _fileAccessor.UpdateAsync(file);
+            await _fileAccessor.SaveChangesAsync();
+
+            var response = _mapper.Map<FileResponse>(file);
+            return Ok(response);
+        }
+
+        [HttpPost("bulk-move")]
+        public async Task<IActionResult> BulkMoveFiles([FromBody] BulkMoveFilesRequest request)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var files = new List<ModelLibrary.Models.File>();
+
+            foreach (var fileId in request.FileIds)
+            {
+                var file = await _fileAccessor.GetByIdAsync(fileId);
+                if (file != null && file.UserId == userId)
+                {
+                    file.FolderId = request.TargetFolderId;
+                    await _fileAccessor.UpdateAsync(file);
+                    files.Add(file);
+                }
+            }
+
+            await _fileAccessor.SaveChangesAsync();
+            return Ok(new { Message = $"{files.Count} files moved successfully", MovedCount = files.Count });
+        }
+
+        [HttpGet("recent")]
+        public async Task<IActionResult> GetRecentFiles([FromQuery] int limit = 10)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var files = await _fileAccessor.GetByUserIdAsync(userId);
+            var recentFiles = files.OrderByDescending(f => f.UploadDate).Take(limit);
+            var response = _mapper.Map<IEnumerable<FileResponse>>(recentFiles);
+            return Ok(response);
+        }
     }
 }

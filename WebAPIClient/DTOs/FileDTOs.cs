@@ -28,4 +28,15 @@ namespace WebAPIClient.DTOs
         public string? Visibility { get; set; }
         public int? FolderId { get; set; }
     }
+
+    public class MoveFileRequest
+    {
+        public int? TargetFolderId { get; set; }
+    }
+
+    public class BulkMoveFilesRequest
+    {
+        public List<int> FileIds { get; set; } = new();
+        public int? TargetFolderId { get; set; }
+    }
 }
