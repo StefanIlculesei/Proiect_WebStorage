@@ -24,6 +24,7 @@ namespace WebAPIClient.DTOs
         public int? ParentFolderId { get; set; }
         public List<FolderTreeResponse> SubFolders { get; set; } = new();
         public int FileCount { get; set; }
+        public int SubFolderCount { get; set; }
     }
 
     public class FolderContentsResponse

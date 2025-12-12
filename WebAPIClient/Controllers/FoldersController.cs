@@ -35,7 +35,8 @@ namespace WebAPIClient.Controllers
         public async Task<IActionResult> GetRootFolders()
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var folders = await _folderAccessor.GetRootFoldersAsync(userId);
+            var rootFolder = await _folderAccessor.GetOrCreateRootFolderAsync(userId);
+            var folders = await _folderAccessor.GetSubFoldersAsync(rootFolder.Id);
             var response = _mapper.Map<IEnumerable<FolderResponse>>(folders);
             return Ok(response);
         }
@@ -59,15 +60,47 @@ namespace WebAPIClient.Controllers
         public async Task<IActionResult> GetFolderTree(int id)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var folder = await _folderAccessor.GetWithSubFoldersAsync(id);
+            // Load the full node (includes Files and SubFolders for this level)
+            var folder = await _folderAccessor.GetByIdAsync(id);
 
             if (folder == null || folder.UserId != userId)
             {
                 return NotFound(new { Message = "Folder not found" });
             }
 
-            var response = _mapper.Map<FolderTreeResponse>(folder);
+            var response = await BuildFolderTreeAsync(folder, userId);
             return Ok(response);
+        }
+
+        private async Task<FolderTreeResponse> BuildFolderTreeAsync(Folder folder, int userId)
+        {
+            // Build current node with counts
+            var node = new FolderTreeResponse
+            {
+                Id = folder.Id,
+                Name = folder.Name,
+                ParentFolderId = folder.ParentFolderId,
+                FileCount = folder.Files?.Count(f => !f.IsDeleted) ?? 0,
+                SubFolderCount = folder.SubFolders?.Count(sf => !sf.IsDeleted) ?? 0,
+                SubFolders = new List<FolderTreeResponse>()
+            };
+
+            // Iterate children and build recursively
+            var children = (folder.SubFolders ?? new List<Folder>())
+                .Where(sf => !sf.IsDeleted && sf.UserId == userId)
+                .ToList();
+
+            foreach (var child in children)
+            {
+                // Ensure child has its own Files and SubFolders loaded
+                var fullChild = await _folderAccessor.GetByIdAsync(child.Id);
+                if (fullChild != null && fullChild.UserId == userId)
+                {
+                    node.SubFolders.Add(await BuildFolderTreeAsync(fullChild, userId));
+                }
+            }
+
+            return node;
         }
 
         [HttpPost]
@@ -75,8 +108,29 @@ namespace WebAPIClient.Controllers
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+            var parentFolderId = request.ParentFolderId;
+
+            // If no parent provided, attach to user's root folder
+            if (!parentFolderId.HasValue)
+            {
+                var rootFolder = await _folderAccessor.GetOrCreateRootFolderAsync(userId);
+                parentFolderId = rootFolder.Id;
+            }
+            else
+            {
+                // Validate parent folder exists and belongs to user (if creating subfolder)
+                var parentFolder = await _folderAccessor.GetByIdAsync(parentFolderId.Value);
+                if (parentFolder == null || parentFolder.UserId != userId)
+                {
+                    return BadRequest(new { Message = "Parent folder not found or does not belong to user" });
+                }
+            }
+
             var folder = _mapper.Map<Folder>(request);
             folder.UserId = userId;
+            folder.ParentFolderId = parentFolderId;
+            folder.CreatedAt = DateTime.UtcNow;
+            folder.UpdatedAt = DateTime.UtcNow;
 
             await _folderAccessor.AddAsync(folder);
             await _folderAccessor.SaveChangesAsync();
@@ -160,6 +214,16 @@ namespace WebAPIClient.Controllers
             if (request.TargetParentFolderId == id)
             {
                 return BadRequest(new { Message = "Cannot move folder into itself" });
+            }
+
+            // Validate target parent folder exists and belongs to user (if moving to a folder)
+            if (request.TargetParentFolderId.HasValue)
+            {
+                var targetParentFolder = await _folderAccessor.GetByIdAsync(request.TargetParentFolderId.Value);
+                if (targetParentFolder == null || targetParentFolder.UserId != userId)
+                {
+                    return BadRequest(new { Message = "Target parent folder not found or does not belong to user" });
+                }
             }
 
             folder.ParentFolderId = request.TargetParentFolderId;

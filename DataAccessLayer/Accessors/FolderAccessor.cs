@@ -13,6 +13,8 @@ namespace DataAccessLayer.Accessors
         public async Task<IEnumerable<Folder>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
         {
             return await _dbSet
+                .Include(f => f.Files.Where(file => !file.IsDeleted))
+                .Include(f => f.SubFolders.Where(sub => !sub.IsDeleted))
                 .Where(f => f.UserId == userId && !f.IsDeleted)
                 .ToListAsync(cancellationToken);
         }
@@ -20,6 +22,8 @@ namespace DataAccessLayer.Accessors
         public async Task<IEnumerable<Folder>> GetRootFoldersAsync(int userId, CancellationToken cancellationToken = default)
         {
             return await _dbSet
+                .Include(f => f.Files.Where(file => !file.IsDeleted))
+                .Include(f => f.SubFolders.Where(sub => !sub.IsDeleted))
                 .Where(f => f.UserId == userId && f.ParentFolderId == null && !f.IsDeleted)
                 .ToListAsync(cancellationToken);
         }
@@ -27,6 +31,8 @@ namespace DataAccessLayer.Accessors
         public async Task<IEnumerable<Folder>> GetSubFoldersAsync(int parentFolderId, CancellationToken cancellationToken = default)
         {
             return await _dbSet
+                .Include(f => f.Files.Where(file => !file.IsDeleted))
+                .Include(f => f.SubFolders.Where(sub => !sub.IsDeleted))
                 .Where(f => f.ParentFolderId == parentFolderId && !f.IsDeleted)
                 .ToListAsync(cancellationToken);
         }
@@ -43,6 +49,40 @@ namespace DataAccessLayer.Accessors
             return await _dbSet
                 .Include(f => f.SubFolders.Where(sub => !sub.IsDeleted))
                 .FirstOrDefaultAsync(f => f.Id == folderId, cancellationToken);
+        }
+
+        public override async Task<Folder?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Include(f => f.Files.Where(file => !file.IsDeleted))
+                .Include(f => f.SubFolders.Where(sub => !sub.IsDeleted))
+                .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+        }
+
+        public async Task<Folder> GetOrCreateRootFolderAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            var root = await _dbSet
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.ParentFolderId == null && !f.IsDeleted, cancellationToken);
+
+            if (root != null)
+            {
+                return root;
+            }
+
+            var newRoot = new Folder
+            {
+                UserId = userId,
+                Name = "root",
+                ParentFolderId = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+
+            await _dbSet.AddAsync(newRoot, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return newRoot;
         }
     }
 }

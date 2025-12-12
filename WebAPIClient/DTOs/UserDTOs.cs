@@ -8,6 +8,7 @@ namespace WebAPIClient.DTOs
         public long StorageUsed { get; set; }
         public long StorageLimit { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public int RootFolderId { get; set; }
     }
 
     public class UpdateProfileRequest

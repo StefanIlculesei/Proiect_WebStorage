@@ -27,9 +27,13 @@ namespace WebAPIClient.Mappers
                 .ForMember(dest => dest.StorageLimit, opt => opt.MapFrom(src => src.Plan.LimitSize));
 
             // Folder mappings
-            CreateMap<Folder, FolderResponse>();
+            CreateMap<Folder, FolderResponse>()
+                .ForMember(dest => dest.FileCount, opt => opt.MapFrom(src => src.Files.Count(f => !f.IsDeleted)))
+                .ForMember(dest => dest.SubFolderCount, opt => opt.MapFrom(src => src.SubFolders.Count(sf => !sf.IsDeleted)));
             CreateMap<Folder, FolderTreeResponse>()
-                .ForMember(dest => dest.SubFolders, opt => opt.MapFrom(src => src.SubFolders));
+                .ForMember(dest => dest.SubFolders, opt => opt.MapFrom(src => src.SubFolders))
+                .ForMember(dest => dest.FileCount, opt => opt.MapFrom(src => src.Files.Count(f => !f.IsDeleted)))
+                .ForMember(dest => dest.SubFolderCount, opt => opt.MapFrom(src => src.SubFolders.Count(sf => !sf.IsDeleted)));
             CreateMap<Folder, FolderContentsResponse>()
                 .ForMember(dest => dest.SubFolders, opt => opt.Ignore())
                 .ForMember(dest => dest.Files, opt => opt.MapFrom(src => src.Files));

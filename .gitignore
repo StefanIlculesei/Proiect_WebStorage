@@ -39,3 +39,6 @@ packages/
 # Migration files should be tracked
 !**/Migrations/*.cs
 !**/Migrations/*.Designer.cs
+
+
+/WebAPIClient/uploads

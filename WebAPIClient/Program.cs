@@ -10,8 +10,20 @@ using ModelLibrary.Models;
 using System.Text;
 using WebAPIClient.Mappers;
 using WebAPIClient.Validators;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure request size limits (increase from default 30MB to 5GB for file uploads)
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.MaxRequestBodySize = 5368709120; // 5GB
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 5368709120; // 5GB
+});
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -19,6 +31,14 @@ builder.Services.AddControllers();
 // Configure FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+
+// Configure form options for large file uploads
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = 5368709120; // 5GB
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+});
 
 // Configure AutoMapper
 builder.Services.AddAutoMapper(typeof(ApiMappingProfile));

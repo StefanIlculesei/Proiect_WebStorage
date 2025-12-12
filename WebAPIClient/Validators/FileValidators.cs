@@ -11,8 +11,8 @@ namespace WebAPIClient.Validators
                 .NotEmpty().WithMessage("File name is required")
                 .MaximumLength(255).WithMessage("File name cannot exceed 255 characters");
 
-            RuleFor(x => x.FileSize)
-                .GreaterThan(0).WithMessage("File size must be greater than 0");
+            // File size validation is performed on request.File.Length in the controller
+            // FileSize DTO property is optional and not sent from frontend FormData
         }
     }
 

@@ -14,17 +14,23 @@ namespace WebAPIClient.Controllers
     public class FilesController : ControllerBase
     {
         private readonly FileAccessor _fileAccessor;
+        private readonly FolderAccessor _folderAccessor;
+        private readonly UserAccessor _userAccessor;
         private readonly IMapper _mapper;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<FilesController> _logger;
 
         public FilesController(
             FileAccessor fileAccessor,
+            FolderAccessor folderAccessor,
+            UserAccessor userAccessor,
             IMapper mapper,
             IWebHostEnvironment environment,
             ILogger<FilesController> logger)
         {
             _fileAccessor = fileAccessor;
+            _folderAccessor = folderAccessor;
+            _userAccessor = userAccessor;
             _mapper = mapper;
             _environment = environment;
             _logger = logger;
@@ -128,6 +134,15 @@ namespace WebAPIClient.Controllers
             };
 
             await _fileAccessor.AddAsync(file);
+            
+            // Update user's storage usage
+            var user = await _userAccessor.GetByIdAsync(userId);
+            if (user != null)
+            {
+                user.StorageUsed += request.File.Length;
+                await _userAccessor.UpdateAsync(user);
+            }
+            
             await _fileAccessor.SaveChangesAsync();
 
             var response = _mapper.Map<FileResponse>(file);
@@ -176,6 +191,16 @@ namespace WebAPIClient.Controllers
             file.DeletedAt = DateTime.UtcNow;
 
             await _fileAccessor.UpdateAsync(file);
+            
+            // Update user's storage usage
+            var user = await _userAccessor.GetByIdAsync(userId);
+            if (user != null)
+            {
+                user.StorageUsed -= file.FileSize;
+                if (user.StorageUsed < 0) user.StorageUsed = 0; // Prevent negative values
+                await _userAccessor.UpdateAsync(user);
+            }
+            
             await _fileAccessor.SaveChangesAsync();
 
             return NoContent();
@@ -201,6 +226,16 @@ namespace WebAPIClient.Controllers
                 return NotFound(new { Message = "File not found" });
             }
 
+            // Validate target folder exists and belongs to user (if moving to a folder)
+            if (request.TargetFolderId.HasValue)
+            {
+                var targetFolder = await _folderAccessor.GetByIdAsync(request.TargetFolderId.Value);
+                if (targetFolder == null || targetFolder.UserId != userId)
+                {
+                    return BadRequest(new { Message = "Target folder not found or does not belong to user" });
+                }
+            }
+
             file.FolderId = request.TargetFolderId;
             await _fileAccessor.UpdateAsync(file);
             await _fileAccessor.SaveChangesAsync();
@@ -213,6 +248,17 @@ namespace WebAPIClient.Controllers
         public async Task<IActionResult> BulkMoveFiles([FromBody] BulkMoveFilesRequest request)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            // Validate target folder exists and belongs to user (if moving to a folder)
+            if (request.TargetFolderId.HasValue)
+            {
+                var targetFolder = await _folderAccessor.GetByIdAsync(request.TargetFolderId.Value);
+                if (targetFolder == null || targetFolder.UserId != userId)
+                {
+                    return BadRequest(new { Message = "Target folder not found or does not belong to user" });
+                }
+            }
+
             var files = new List<ModelLibrary.Models.File>();
 
             foreach (var fileId in request.FileIds)
