@@ -11,8 +11,12 @@ using System.Text;
 using WebAPIClient.Mappers;
 using WebAPIClient.Validators;
 using Microsoft.AspNetCore.Http.Features;
+using LoggingLayer;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog logging
+builder.Logging.AddSerilogLogging();
 
 // Configure request size limits (increase from default 30MB to 5GB for file uploads)
 builder.Services.Configure<IISServerOptions>(options =>
@@ -44,11 +48,13 @@ builder.Services.AddScoped<ServiceLayer.Interfaces.IFileService>(sp =>
         sp.GetRequiredService<DataAccessLayer.Accessors.FileEventAccessor>(),
         sp.GetRequiredService<DataAccessLayer.Accessors.PlanAccessor>(),
         sp.GetRequiredService<DataAccessLayer.Accessors.SubscriptionAccessor>(),
-        sp.GetRequiredService<PersistenceLayer.WebStorageContext>()
+        sp.GetRequiredService<PersistenceLayer.WebStorageContext>(),
+        sp.GetRequiredService<ILogger<ServiceLayer.Implementations.FileService>>()
     );
     var cache = sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
     var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServiceLayer.Options.CacheOptions>>();
-    return new ServiceLayer.Implementations.CachedFileService(inner, cache, opts);
+    var logger = sp.GetRequiredService<ILogger<ServiceLayer.Implementations.CachedFileService>>();
+    return new ServiceLayer.Implementations.CachedFileService(inner, cache, opts, logger);
 });
 
 // Configure FluentValidation

@@ -36,6 +36,9 @@ TestResults/
 packages/
 .nuget/
 
+
+/storage/logs/
+
 # Migration files should be tracked
 !**/Migrations/*.cs
 !**/Migrations/*.Designer.cs

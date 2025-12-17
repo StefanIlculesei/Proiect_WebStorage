@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ModelLibrary\ModelLibrary.csproj" />
     <ProjectReference Include="..\PersistanceLayer\PersistenceLayer.csproj" />
+    <ProjectReference Include="..\LoggingLayer\LoggingLayer.csproj" />
   </ItemGroup>
 
 </Project>
