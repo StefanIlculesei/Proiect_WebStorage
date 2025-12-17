@@ -27,6 +27,29 @@ builder.WebHost.ConfigureKestrel(options =>
 
 // Add services to the container.
 builder.Services.AddControllers();
+// ServiceLayer DI
+builder.Services.AddMemoryCache();
+builder.Services.Configure<ServiceLayer.Options.CacheOptions>(
+    builder.Configuration.GetSection("CacheOptions"));
+// Register data access dependencies
+builder.Services.AddScoped<DataAccessLayer.Accessors.FileAccessor>();
+builder.Services.AddScoped<DataAccessLayer.Accessors.FileEventAccessor>();
+builder.Services.AddScoped<DataAccessLayer.Accessors.PlanAccessor>();
+builder.Services.AddScoped<DataAccessLayer.Accessors.SubscriptionAccessor>();
+// Register file service with caching decorator
+builder.Services.AddScoped<ServiceLayer.Interfaces.IFileService>(sp =>
+{
+    var inner = new ServiceLayer.Implementations.FileService(
+        sp.GetRequiredService<DataAccessLayer.Accessors.FileAccessor>(),
+        sp.GetRequiredService<DataAccessLayer.Accessors.FileEventAccessor>(),
+        sp.GetRequiredService<DataAccessLayer.Accessors.PlanAccessor>(),
+        sp.GetRequiredService<DataAccessLayer.Accessors.SubscriptionAccessor>(),
+        sp.GetRequiredService<PersistenceLayer.WebStorageContext>()
+    );
+    var cache = sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServiceLayer.Options.CacheOptions>>();
+    return new ServiceLayer.Implementations.CachedFileService(inner, cache, opts);
+});
 
 // Configure FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -49,7 +72,8 @@ builder.Services.AddDbContext<WebStorageContext>(options =>
     options.UseNpgsql(connectionString));
 
 // Configure Identity
-builder.Services.AddIdentity<User, IdentityRole<int>>(options => {
+builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
+{
     options.Password.RequireDigit = false;
     options.Password.RequireLowercase = false;
     options.Password.RequireNonAlphanumeric = false;
