@@ -421,18 +421,3 @@ WebStorage/
 - Check token expiration (24 hours by default)
 - Ensure Authorization header format: `Bearer {token}`
 
-## 📝 License
-
-[Your License Here]
-
-## 👥 Contributors
-
-[Your Name/Team]
-
-## 📧 Support
-
-For issues or questions, contact: [Your Contact Info]
-
----
-
-**Last Updated:** December 18, 2025
