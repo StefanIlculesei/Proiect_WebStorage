@@ -1,11 +1,10 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using DataAccessLayer.Accessors;
 using System.Security.Claims;
-using ModelLibrary.Models;
 using WebAPIClient.DTOs;
 using LoggingLayer;
+using ServiceLayer.Interfaces;
 
 namespace WebAPIClient.Controllers
 {
@@ -14,24 +13,18 @@ namespace WebAPIClient.Controllers
     [Authorize]
     public class FilesController : ControllerBase
     {
-        private readonly FileAccessor _fileAccessor;
-        private readonly FolderAccessor _folderAccessor;
-        private readonly UserAccessor _userAccessor;
+        private readonly IFileService _fileService;
         private readonly IMapper _mapper;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<FilesController> _logger;
 
         public FilesController(
-            FileAccessor fileAccessor,
-            FolderAccessor folderAccessor,
-            UserAccessor userAccessor,
+            IFileService fileService,
             IMapper mapper,
             IWebHostEnvironment environment,
             ILogger<FilesController> logger)
         {
-            _fileAccessor = fileAccessor;
-            _folderAccessor = folderAccessor;
-            _userAccessor = userAccessor;
+            _fileService = fileService;
             _mapper = mapper;
             _environment = environment;
             _logger = logger;
@@ -43,7 +36,7 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var files = await _fileAccessor.GetByUserIdAsync(userId);
+                var files = await _fileService.GetByUserIdAsync(userId);
                 var response = _mapper.Map<IEnumerable<FileResponse>>(files);
                 return Ok(response);
             }
@@ -59,7 +52,7 @@ namespace WebAPIClient.Controllers
         {
             try
             {
-                var files = await _fileAccessor.GetByFolderIdAsync(folderId);
+                var files = await _fileService.GetByFolderIdAsync(folderId);
                 var response = _mapper.Map<IEnumerable<FileResponse>>(files);
                 return Ok(response);
             }
@@ -76,9 +69,9 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var file = await _fileAccessor.GetByIdAsync(id);
+                var file = await _fileService.GetByIdAsync(id, userId);
 
-                if (file == null || file.UserId != userId)
+                if (file == null)
                 {
                     return NotFound(new { Message = "File not found" });
                 }
@@ -99,9 +92,9 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var file = await _fileAccessor.GetByIdAsync(id);
+                var file = await _fileService.GetByIdAsync(id, userId);
 
-                if (file == null || file.UserId != userId)
+                if (file == null)
                 {
                     return NotFound(new { Message = "File not found" });
                 }
@@ -155,33 +148,26 @@ namespace WebAPIClient.Controllers
                     await request.File.CopyToAsync(stream);
                 }
 
-                // Create database record
-                var file = new ModelLibrary.Models.File
-                {
-                    UserId = userId,
-                    FolderId = request.FolderId,
-                    FileName = request.FileName,
-                    FileSize = request.File.Length,
-                    StoragePath = Path.Combine("uploads", userId.ToString(), uniqueFileName),
-                    MimeType = request.File.ContentType,
-                    Visibility = request.Visibility,
-                    UploadDate = DateTime.UtcNow
-                };
+                var storagePath = Path.Combine("uploads", userId.ToString(), uniqueFileName);
 
-                await _fileAccessor.AddAsync(file);
-
-                // Update user's storage usage
-                var user = await _userAccessor.GetByIdAsync(userId);
-                if (user != null)
-                {
-                    user.StorageUsed += request.File.Length;
-                    await _userAccessor.UpdateAsync(user);
-                }
-
-                await _fileAccessor.SaveChangesAsync();
+                // Use service to create file record and update storage
+                var file = await _fileService.UploadFileAsync(
+                    userId,
+                    request.FolderId,
+                    request.FileName,
+                    request.File.Length,
+                    storagePath,
+                    request.File.ContentType,
+                    request.Visibility
+                );
 
                 var response = _mapper.Map<FileResponse>(file);
                 return CreatedAtAction(nameof(GetFileById), new { id = file.Id }, response);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(nameof(UploadFile), ex, $"fileName: {request.File?.FileName}");
+                return BadRequest(new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -196,27 +182,15 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var file = await _fileAccessor.GetByIdAsync(id);
-
-                if (file == null || file.UserId != userId)
-                {
-                    return NotFound(new { Message = "File not found" });
-                }
-
-                if (!string.IsNullOrEmpty(request.FileName))
-                    file.FileName = request.FileName;
-
-                if (!string.IsNullOrEmpty(request.Visibility))
-                    file.Visibility = request.Visibility;
-
-                if (request.FolderId.HasValue)
-                    file.FolderId = request.FolderId;
-
-                await _fileAccessor.UpdateAsync(file);
-                await _fileAccessor.SaveChangesAsync();
+                var file = await _fileService.UpdateFileAsync(id, userId, request.FileName, request.Visibility, request.FolderId);
 
                 var response = _mapper.Map<FileResponse>(file);
                 return Ok(response);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(nameof(UpdateFile), ex, $"fileId: {id}");
+                return NotFound(new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -231,28 +205,12 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var file = await _fileAccessor.GetByIdAsync(id);
+                var result = await _fileService.DeleteFileAsync(id, userId);
 
-                if (file == null || file.UserId != userId)
+                if (!result)
                 {
                     return NotFound(new { Message = "File not found" });
                 }
-
-                file.IsDeleted = true;
-                file.DeletedAt = DateTime.UtcNow;
-
-                await _fileAccessor.UpdateAsync(file);
-
-                // Update user's storage usage
-                var user = await _userAccessor.GetByIdAsync(userId);
-                if (user != null)
-                {
-                    user.StorageUsed -= file.FileSize;
-                    if (user.StorageUsed < 0) user.StorageUsed = 0; // Prevent negative values
-                    await _userAccessor.UpdateAsync(user);
-                }
-
-                await _fileAccessor.SaveChangesAsync();
 
                 return NoContent();
             }
@@ -269,7 +227,7 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var files = await _fileAccessor.SearchByNameAsync(userId, query);
+                var files = await _fileService.SearchByNameAsync(userId, query);
                 var response = _mapper.Map<IEnumerable<FileResponse>>(files);
                 return Ok(response);
             }
@@ -286,29 +244,20 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var file = await _fileAccessor.GetByIdAsync(id);
+                var file = await _fileService.MoveFileAsync(id, userId, request.TargetFolderId);
 
-                if (file == null || file.UserId != userId)
+                if (file == null)
                 {
                     return NotFound(new { Message = "File not found" });
                 }
 
-                // Validate target folder exists and belongs to user (if moving to a folder)
-                if (request.TargetFolderId.HasValue)
-                {
-                    var targetFolder = await _folderAccessor.GetByIdAsync(request.TargetFolderId.Value);
-                    if (targetFolder == null || targetFolder.UserId != userId)
-                    {
-                        return BadRequest(new { Message = "Target folder not found or does not belong to user" });
-                    }
-                }
-
-                file.FolderId = request.TargetFolderId;
-                await _fileAccessor.UpdateAsync(file);
-                await _fileAccessor.SaveChangesAsync();
-
                 var response = _mapper.Map<FileResponse>(file);
                 return Ok(response);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(nameof(MoveFile), ex, $"fileId: {id}");
+                return BadRequest(new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -323,32 +272,14 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var movedCount = await _fileService.BulkMoveFilesAsync(request.FileIds, userId, request.TargetFolderId);
 
-                // Validate target folder exists and belongs to user (if moving to a folder)
-                if (request.TargetFolderId.HasValue)
-                {
-                    var targetFolder = await _folderAccessor.GetByIdAsync(request.TargetFolderId.Value);
-                    if (targetFolder == null || targetFolder.UserId != userId)
-                    {
-                        return BadRequest(new { Message = "Target folder not found or does not belong to user" });
-                    }
-                }
-
-                var files = new List<ModelLibrary.Models.File>();
-
-                foreach (var fileId in request.FileIds)
-                {
-                    var file = await _fileAccessor.GetByIdAsync(fileId);
-                    if (file != null && file.UserId == userId)
-                    {
-                        file.FolderId = request.TargetFolderId;
-                        await _fileAccessor.UpdateAsync(file);
-                        files.Add(file);
-                    }
-                }
-
-                await _fileAccessor.SaveChangesAsync();
-                return Ok(new { Message = $"{files.Count} files moved successfully", MovedCount = files.Count });
+                return Ok(new { Message = $"{movedCount} files moved successfully", MovedCount = movedCount });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(nameof(BulkMoveFiles), ex, $"fileCount: {request.FileIds.Count}");
+                return BadRequest(new { Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -363,9 +294,8 @@ namespace WebAPIClient.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var files = await _fileAccessor.GetByUserIdAsync(userId);
-                var recentFiles = files.OrderByDescending(f => f.UploadDate).Take(limit);
-                var response = _mapper.Map<IEnumerable<FileResponse>>(recentFiles);
+                var files = await _fileService.GetRecentFilesAsync(userId, limit);
+                var response = _mapper.Map<IEnumerable<FileResponse>>(files);
                 return Ok(response);
             }
             catch (Exception ex)

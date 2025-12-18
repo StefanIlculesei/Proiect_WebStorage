@@ -46,6 +46,8 @@ builder.Services.AddScoped<ServiceLayer.Interfaces.IFileService>(sp =>
     var inner = new ServiceLayer.Implementations.FileService(
         sp.GetRequiredService<DataAccessLayer.Accessors.FileAccessor>(),
         sp.GetRequiredService<DataAccessLayer.Accessors.FileEventAccessor>(),
+        sp.GetRequiredService<DataAccessLayer.Accessors.UserAccessor>(),
+        sp.GetRequiredService<DataAccessLayer.Accessors.FolderAccessor>(),
         sp.GetRequiredService<DataAccessLayer.Accessors.PlanAccessor>(),
         sp.GetRequiredService<DataAccessLayer.Accessors.SubscriptionAccessor>(),
         sp.GetRequiredService<PersistenceLayer.WebStorageContext>(),
