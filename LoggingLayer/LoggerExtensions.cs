@@ -7,8 +7,18 @@ namespace LoggingLayer;
 /// </summary>
 public static class LoggerExtensions
 {
+    private static EmailService? _emailService;
+
     /// <summary>
-    /// Logs an error with method context information
+    /// Configures the email service for error notifications
+    /// </summary>
+    public static void ConfigureEmailService(EmailService emailService)
+    {
+        _emailService = emailService;
+    }
+
+    /// <summary>
+    /// Logs an error with method context information and sends email notification
     /// </summary>
     public static void LogError(this ILogger logger, string methodName, Exception exception, string? additionalContext = null)
     {
@@ -19,6 +29,22 @@ public static class LoggerExtensions
         }
 
         logger.LogError(exception, message);
+
+        // Send email notification asynchronously without blocking
+        if (_emailService != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.SendErrorNotificationAsync(methodName, exception, additionalContext);
+                }
+                catch
+                {
+                    // Silently fail - don't want email issues to affect logging
+                }
+            });
+        }
     }
 
     /// <summary>

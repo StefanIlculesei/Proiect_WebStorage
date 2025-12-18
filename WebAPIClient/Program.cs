@@ -130,11 +130,21 @@ builder.Services.AddScoped<UserAccessor>();
 builder.Services.AddScoped<FileAccessor>();
 builder.Services.AddScoped<FolderAccessor>();
 
+// Configure email service for error notifications
+builder.Services.AddSingleton<LoggingLayer.EmailService>();
+
 // Configure OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Initialize email service for error logging
+using (var scope = app.Services.CreateScope())
+{
+    var emailService = scope.ServiceProvider.GetRequiredService<LoggingLayer.EmailService>();
+    LoggingLayer.LoggerExtensions.ConfigureEmailService(emailService);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
