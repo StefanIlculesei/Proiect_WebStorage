@@ -38,6 +38,8 @@ builder.Services.Configure<ServiceLayer.Options.CacheOptions>(
 // Register data access dependencies
 builder.Services.AddScoped<DataAccessLayer.Accessors.FileAccessor>();
 builder.Services.AddScoped<DataAccessLayer.Accessors.FileEventAccessor>();
+builder.Services.AddScoped<DataAccessLayer.Accessors.FolderAccessor>();
+builder.Services.AddScoped<DataAccessLayer.Accessors.UserAccessor>();
 builder.Services.AddScoped<DataAccessLayer.Accessors.PlanAccessor>();
 builder.Services.AddScoped<DataAccessLayer.Accessors.SubscriptionAccessor>();
 // Register file service with caching decorator

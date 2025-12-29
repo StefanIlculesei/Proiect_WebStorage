@@ -134,31 +134,14 @@ namespace WebAPIClient.Controllers
                     return BadRequest(new { Message = "No file uploaded" });
                 }
 
-                // Create uploads directory if it doesn't exist
-                var uploadsDir = Path.Combine(_environment.ContentRootPath, "uploads", userId.ToString());
-                Directory.CreateDirectory(uploadsDir);
-
-                // Generate unique filename
-                var uniqueFileName = $"{Guid.NewGuid()}_{request.File.FileName}";
-                var filePath = Path.Combine(uploadsDir, uniqueFileName);
-
-                // Save file to disk
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await request.File.CopyToAsync(stream);
-                }
-
-                var storagePath = Path.Combine("uploads", userId.ToString(), uniqueFileName);
-
-                // Use service to create file record and update storage
+                // Use service to handle file upload (including I/O operations)
                 var file = await _fileService.UploadFileAsync(
                     userId,
                     request.FolderId,
+                    request.File,
                     request.FileName,
-                    request.File.Length,
-                    storagePath,
-                    request.File.ContentType,
-                    request.Visibility
+                    request.Visibility,
+                    _environment.ContentRootPath
                 );
 
                 var response = _mapper.Map<FileResponse>(file);

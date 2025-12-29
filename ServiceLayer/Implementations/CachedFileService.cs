@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using ModelLibrary.Models;
 using ServiceLayer.Interfaces;
 using ServiceLayer.Options;
@@ -108,6 +109,24 @@ public class CachedFileService : IFileService
         catch (Exception ex)
         {
             _logger.LogError(nameof(UploadFileAsync), ex, $"fileName: {fileName}");
+            throw;
+        }
+    }
+
+    public async Task<FileModel> UploadFileAsync(int userId, int? folderId, IFormFile file, string displayFileName, string? visibility, string uploadsBasePath)
+    {
+        try
+        {
+            var uploadedFile = await _inner.UploadFileAsync(userId, folderId, file, displayFileName, visibility, uploadsBasePath);
+            if (folderId.HasValue)
+                InvalidateFolder(folderId.Value);
+            InvalidateUser(userId);
+            Set(Key($"file:{uploadedFile.Id}:user:{userId}"), uploadedFile);
+            return uploadedFile;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(nameof(UploadFileAsync), ex, $"fileName: {file?.FileName}");
             throw;
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using DataAccessLayer.Accessors;
 using ModelLibrary.Models;
 using ServiceLayer.Interfaces;
@@ -48,7 +49,7 @@ public class FileService : IFileService
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             // Verify ownership
             if (file == null || file.UserId != userId)
                 return null;
@@ -167,12 +168,61 @@ public class FileService : IFileService
         }
     }
 
+    public async Task<FileModel> UploadFileAsync(int userId, int? folderId, IFormFile file, string displayFileName, string? visibility, string uploadsBasePath)
+    {
+        try
+        {
+            if (file == null || file.Length == 0)
+                throw new InvalidOperationException("No file provided or file is empty");
+
+            // Create uploads directory structure
+            var uploadsDir = Path.Combine(uploadsBasePath, "uploads", userId.ToString());
+            Directory.CreateDirectory(uploadsDir);
+
+            // Generate unique filename to avoid collisions
+            var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+            var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+            // Save file to disk
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Calculate storage path for database
+            var storagePath = Path.Combine("uploads", userId.ToString(), uniqueFileName);
+
+            // Call the existing upload method with the calculated path
+            var uploadedFile = await UploadFileAsync(
+                userId,
+                folderId,
+                displayFileName ?? file.FileName,
+                file.Length,
+                storagePath,
+                file.ContentType,
+                visibility
+            );
+
+            return uploadedFile;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(nameof(UploadFileAsync), ex, $"userId: {userId}, fileName: {file?.FileName}");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(nameof(UploadFileAsync), ex, $"userId: {userId}, fileName: {file?.FileName}");
+            throw;
+        }
+    }
+
     public async Task<FileModel> UpdateFileAsync(int id, int userId, string? fileName = null, string? visibility = null, int? folderId = null)
     {
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             if (file == null || file.UserId != userId)
                 throw new InvalidOperationException("File not found or does not belong to user");
 
@@ -189,7 +239,7 @@ public class FileService : IFileService
                 var folder = await _folderAccessor.GetByIdAsync(folderId.Value);
                 if (folder == null || folder.UserId != userId)
                     throw new InvalidOperationException("Folder not found or does not belong to user");
-                
+
                 file.FolderId = folderId;
             }
 
@@ -210,7 +260,7 @@ public class FileService : IFileService
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             if (file == null || file.UserId != userId)
                 return false;
 
@@ -245,7 +295,7 @@ public class FileService : IFileService
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             if (file == null || file.UserId != userId)
                 return null;
 
