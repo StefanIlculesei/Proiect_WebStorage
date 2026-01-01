@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using ModelLibrary.Models;
 using WebAPIClient.DTOs;
+using ServiceLayer.Interfaces;
 
 namespace WebAPIClient.Controllers
 {
@@ -16,15 +17,21 @@ namespace WebAPIClient.Controllers
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
         private readonly IConfiguration _configuration;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ILogger<AuthController> _logger;
 
         public AuthController(
             UserManager<User> userManager,
             SignInManager<User> signInManager,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ISubscriptionService subscriptionService,
+            ILogger<AuthController> logger)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration = configuration;
+            _subscriptionService = subscriptionService;
+            _logger = logger;
         }
 
         [HttpPost("register")]
@@ -47,6 +54,19 @@ namespace WebAPIClient.Controllers
             }
 
             await _userManager.AddToRoleAsync(user, "user");
+
+            // Assign Free plan to new user automatically
+            try
+            {
+                await _subscriptionService.CreateInitialSubscriptionAsync(user.Id);
+                _logger.LogInformation($"Free plan assigned to new user {user.Id}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error assigning free plan to new user {user.Id}");
+                // Don't fail the registration if subscription creation fails - user registration is more important
+                // The admin can manually assign a plan if needed
+            }
 
             return Ok(new { Message = "User registered successfully" });
         }

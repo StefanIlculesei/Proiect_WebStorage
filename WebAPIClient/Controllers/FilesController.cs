@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using WebAPIClient.DTOs;
+using ServiceLayer.Exceptions;
+using ServiceLayer.Constants;
 using LoggingLayer;
 using ServiceLayer.Interfaces;
 
@@ -131,7 +133,15 @@ namespace WebAPIClient.Controllers
 
                 if (request.File == null || request.File.Length == 0)
                 {
-                    return BadRequest(new { Message = "No file uploaded" });
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "No file was provided or file is empty",
+                        Title = "Invalid File",
+                        ErrorCode = ErrorCatalog.INVALID_FILE,
+                        ErrorCategory = ErrorCategories.VALIDATION,
+                        HttpStatusCode = 400,
+                        IsActionable = false
+                    });
                 }
 
                 // Use service to handle file upload (including I/O operations)
@@ -147,15 +157,111 @@ namespace WebAPIClient.Controllers
                 var response = _mapper.Map<FileResponse>(file);
                 return CreatedAtAction(nameof(GetFileById), new { id = file.Id }, response);
             }
+            catch (FileTooLargeException ex)
+            {
+                _logger.LogWarning($"File too large: {request.File?.FileName}");
+                return StatusCode(ex.HttpStatusCode, new ApiErrorResponse
+                {
+                    Message = ex.Message,
+                    Title = ex.Title,
+                    ErrorCode = ex.ErrorCode,
+                    ErrorCategory = ex.ErrorCategory,
+                    HttpStatusCode = ex.HttpStatusCode,
+                    IsActionable = ex.IsActionable,
+                    Details = new ErrorDetails
+                    {
+                        MaxFileSize = (long?)ex.Details.GetValueOrDefault("maxFileSize"),
+                        FileSize = (long?)ex.Details.GetValueOrDefault("actualFileSize")
+                    }
+                });
+            }
+            catch (QuotaExceededException ex)
+            {
+                _logger.LogWarning($"Storage quota exceeded for user upload");
+                return StatusCode(ex.HttpStatusCode, new ApiErrorResponse
+                {
+                    Message = ex.Message,
+                    Title = ex.Title,
+                    ErrorCode = ex.ErrorCode,
+                    ErrorCategory = ex.ErrorCategory,
+                    HttpStatusCode = ex.HttpStatusCode,
+                    IsActionable = ex.IsActionable,
+                    Details = new ErrorDetails
+                    {
+                        StorageRemaining = (long?)ex.Details.GetValueOrDefault("storageRemaining"),
+                        FileSize = (long?)ex.Details.GetValueOrDefault("fileSize"),
+                        StorageLimit = (long?)ex.Details.GetValueOrDefault("storageLimit")
+                    }
+                });
+            }
+            catch (NoActiveSubscriptionException ex)
+            {
+                _logger.LogWarning($"No active subscription for upload");
+                return StatusCode(ex.HttpStatusCode, new ApiErrorResponse
+                {
+                    Message = ex.Message,
+                    Title = ex.Title,
+                    ErrorCode = ex.ErrorCode,
+                    ErrorCategory = ex.ErrorCategory,
+                    HttpStatusCode = ex.HttpStatusCode,
+                    IsActionable = ex.IsActionable
+                });
+            }
+            catch (SubscriptionExpiredException ex)
+            {
+                _logger.LogWarning($"Subscription expired for upload");
+                return StatusCode(ex.HttpStatusCode, new ApiErrorResponse
+                {
+                    Message = ex.Message,
+                    Title = ex.Title,
+                    ErrorCode = ex.ErrorCode,
+                    ErrorCategory = ex.ErrorCategory,
+                    HttpStatusCode = ex.HttpStatusCode,
+                    IsActionable = ex.IsActionable,
+                    Details = new ErrorDetails
+                    {
+                        ExpiredDate = (DateTime?)ex.Details.GetValueOrDefault("expiredDate")
+                    }
+                });
+            }
             catch (InvalidOperationException ex)
             {
-                _logger.LogError(nameof(UploadFile), ex, $"fileName: {request.File?.FileName}");
-                return BadRequest(new { Message = ex.Message });
+                _logger.LogWarning(ex, $"Invalid operation during upload: {request.File?.FileName}");
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = ex.Message,
+                    Title = "Invalid Request",
+                    ErrorCode = ErrorCatalog.INVALID_FILE,
+                    ErrorCategory = ErrorCategories.VALIDATION,
+                    HttpStatusCode = 400,
+                    IsActionable = false
+                });
+            }
+            catch (FileSaveException ex)
+            {
+                _logger.LogError(ex, $"File save failed: {request.File?.FileName}");
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = ex.Message,
+                    Title = ex.Title,
+                    ErrorCode = ex.ErrorCode,
+                    ErrorCategory = ex.ErrorCategory,
+                    HttpStatusCode = ex.HttpStatusCode,
+                    IsActionable = ex.IsActionable
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(nameof(UploadFile), ex, $"fileName: {request.File?.FileName}");
-                return StatusCode(500, new { Message = "An error occurred while uploading the file" });
+                _logger.LogError(ex, $"Unexpected error during upload: {request.File?.FileName}");
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An unexpected error occurred while uploading the file",
+                    Title = "Server Error",
+                    ErrorCode = ErrorCatalog.UNKNOWN_ERROR,
+                    ErrorCategory = ErrorCategories.SERVER,
+                    HttpStatusCode = 500,
+                    IsActionable = false
+                });
             }
         }
 

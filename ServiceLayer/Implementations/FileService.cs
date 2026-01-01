@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using DataAccessLayer.Accessors;
 using ModelLibrary.Models;
 using ServiceLayer.Interfaces;
+using ServiceLayer.Exceptions;
 using PersistenceLayer;
 using LoggingLayer;
 using FileModel = ModelLibrary.Models.File;
@@ -21,6 +22,7 @@ public class FileService : IFileService
     private readonly FolderAccessor _folderAccessor;
     private readonly PlanAccessor _planAccessor;
     private readonly SubscriptionAccessor _subscriptionAccessor;
+    private readonly IStorageQuotaService _storageQuotaService;
     private readonly WebStorageContext _context;
     private readonly ILogger<FileService> _logger;
 
@@ -31,6 +33,7 @@ public class FileService : IFileService
         FolderAccessor folderAccessor,
         PlanAccessor planAccessor,
         SubscriptionAccessor subscriptionAccessor,
+        IStorageQuotaService storageQuotaService,
         WebStorageContext context,
         ILogger<FileService> logger)
     {
@@ -40,6 +43,7 @@ public class FileService : IFileService
         _folderAccessor = folderAccessor;
         _planAccessor = planAccessor;
         _subscriptionAccessor = subscriptionAccessor;
+        _storageQuotaService = storageQuotaService;
         _context = context;
         _logger = logger;
     }
@@ -374,28 +378,18 @@ public class FileService : IFileService
     {
         try
         {
-            // Get active subscription and plan limits
-            var subscription = await _subscriptionAccessor.GetActiveSubscriptionByUserIdAsync(userId);
-            if (subscription == null)
-            {
-                // Allow upload if no subscription (free tier or default)
-                return;
-            }
-
-            var plan = await _planAccessor.GetByIdAsync(subscription.PlanId);
-            if (plan == null)
-                throw new InvalidOperationException("Plan not found");
-
-            if (addedBytes > plan.MaxFileSize)
-                throw new InvalidOperationException($"File size ({addedBytes} bytes) exceeds plan's max file size ({plan.MaxFileSize} bytes)");
-
-            var currentUsage = await _fileAccessor.GetTotalSizeByUserAsync(userId);
-            if (currentUsage + addedBytes > plan.LimitSize)
-                throw new InvalidOperationException($"Total storage ({currentUsage + addedBytes} bytes) exceeds plan storage capacity ({plan.LimitSize} bytes)");
+            // Use StorageQuotaService to validate upload against plan limits
+            // This will throw typed exceptions if limits are exceeded
+            await _storageQuotaService.ValidateUploadAsync(userId, addedBytes);
+        }
+        catch (StorageException)
+        {
+            // Re-throw storage exceptions (FileTooLargeException, QuotaExceededException, etc.)
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(nameof(ValidatePlanLimitsAsync), ex, $"userId: {userId}, addedBytes: {addedBytes}");
+            _logger.LogError(ex, $"Error validating plan limits for userId: {userId}, addedBytes: {addedBytes}");
             throw;
         }
     }

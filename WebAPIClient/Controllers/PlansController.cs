@@ -1,7 +1,7 @@
-using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using DataAccessLayer.Accessors;
-using WebAPIClient.DTOs;
+using ServiceLayer.Interfaces;
+using LoggingLayer;
 
 namespace WebAPIClient.Controllers
 {
@@ -9,34 +9,36 @@ namespace WebAPIClient.Controllers
     [Route("api/[controller]")]
     public class PlansController : ControllerBase
     {
-        private readonly PlanAccessor _planAccessor;
-        private readonly IMapper _mapper;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ILogger<PlansController> _logger;
 
-        public PlansController(PlanAccessor planAccessor, IMapper mapper)
+        public PlansController(
+            ISubscriptionService subscriptionService,
+            ILogger<PlansController> logger)
         {
-            _planAccessor = planAccessor;
-            _mapper = mapper;
+            _subscriptionService = subscriptionService;
+            _logger = logger;
         }
 
+        /// <summary>
+        /// Gets all available plans with pricing and features
+        /// </summary>
+        /// <response code="200">Returns list of available plans</response>
+        /// <response code="500">Server error occurred</response>
         [HttpGet]
-        public async Task<IActionResult> GetAllPlans()
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPlans()
         {
-            var plans = await _planAccessor.GetAllAsync();
-            var response = _mapper.Map<IEnumerable<PlanResponse>>(plans);
-            return Ok(response);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetPlanById(int id)
-        {
-            var plan = await _planAccessor.GetByIdAsync(id);
-            if (plan == null)
+            try
             {
-                return NotFound(new { Message = "Plan not found" });
+                var plans = await _subscriptionService.GetAvailablePlansAsync();
+                return Ok(plans);
             }
-
-            var response = _mapper.Map<PlanResponse>(plan);
-            return Ok(response);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving plans");
+                return StatusCode(500, new { Message = "An error occurred while retrieving plans" });
+            }
         }
     }
 }

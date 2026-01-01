@@ -11,7 +11,7 @@ namespace WebAPIClient.Mappers
             // User mappings
             CreateMap<User, UserProfileResponse>()
                 .ForMember(dest => dest.StorageUsed, opt => opt.MapFrom(src => src.StorageUsed));
-            
+
             CreateMap<UpdateProfileRequest, User>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.StorageUsed, opt => opt.Ignore())
@@ -23,8 +23,14 @@ namespace WebAPIClient.Mappers
 
             // Subscription mappings
             CreateMap<Subscription, SubscriptionResponse>()
+                .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.UserId))
+                .ForMember(dest => dest.PlanId, opt => opt.MapFrom(src => src.PlanId))
                 .ForMember(dest => dest.PlanName, opt => opt.MapFrom(src => src.Plan.Name))
-                .ForMember(dest => dest.StorageLimit, opt => opt.MapFrom(src => src.Plan.LimitSize));
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status ?? "active"))
+                .ForMember(dest => dest.StartDate, opt => opt.MapFrom(src => src.StartDate ?? DateTime.UtcNow))
+                .ForMember(dest => dest.EndDate, opt => opt.MapFrom(src => src.EndDate ?? DateTime.UtcNow.AddDays(30)))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt ?? DateTime.UtcNow))
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt));
 
             // Folder mappings
             CreateMap<Folder, FolderResponse>()
