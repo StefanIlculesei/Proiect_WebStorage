@@ -38,8 +38,15 @@ builder.Services.Configure<ServiceLayer.Options.CacheOptions>(
 // Register data access dependencies
 builder.Services.AddScoped<DataAccessLayer.Accessors.FileAccessor>();
 builder.Services.AddScoped<DataAccessLayer.Accessors.FileEventAccessor>();
+builder.Services.AddScoped<DataAccessLayer.Accessors.FolderAccessor>();
+builder.Services.AddScoped<DataAccessLayer.Accessors.UserAccessor>();
 builder.Services.AddScoped<DataAccessLayer.Accessors.PlanAccessor>();
 builder.Services.AddScoped<DataAccessLayer.Accessors.SubscriptionAccessor>();
+
+// Register service layer dependencies
+builder.Services.AddScoped<ServiceLayer.Interfaces.IStorageQuotaService, ServiceLayer.Implementations.StorageQuotaService>();
+builder.Services.AddScoped<ServiceLayer.Interfaces.ISubscriptionService, ServiceLayer.Implementations.SubscriptionService>();
+
 // Register file service with caching decorator
 builder.Services.AddScoped<ServiceLayer.Interfaces.IFileService>(sp =>
 {
@@ -50,6 +57,7 @@ builder.Services.AddScoped<ServiceLayer.Interfaces.IFileService>(sp =>
         sp.GetRequiredService<DataAccessLayer.Accessors.FolderAccessor>(),
         sp.GetRequiredService<DataAccessLayer.Accessors.PlanAccessor>(),
         sp.GetRequiredService<DataAccessLayer.Accessors.SubscriptionAccessor>(),
+        sp.GetRequiredService<ServiceLayer.Interfaces.IStorageQuotaService>(),
         sp.GetRequiredService<PersistenceLayer.WebStorageContext>(),
         sp.GetRequiredService<ILogger<ServiceLayer.Implementations.FileService>>()
     );

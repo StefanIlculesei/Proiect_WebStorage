@@ -6,6 +6,7 @@ using System.Security.Claims;
 using ModelLibrary.Models;
 using WebAPIClient.DTOs;
 using DataAccessLayer.Accessors;
+using ServiceLayer.Interfaces;
 
 namespace WebAPIClient.Controllers
 {
@@ -17,17 +18,21 @@ namespace WebAPIClient.Controllers
         private readonly UserManager<User> _userManager;
         private readonly FileAccessor _fileAccessor;
         private readonly FolderAccessor _folderAccessor;
+        private readonly IStorageQuotaService _storageQuotaService;
         private readonly IMapper _mapper;
+        private const long DEFAULT_STORAGE_LIMIT = 5368709120; // 5GB default
 
         public UsersController(
             UserManager<User> userManager,
             FileAccessor fileAccessor,
             FolderAccessor folderAccessor,
+            IStorageQuotaService storageQuotaService,
             IMapper mapper)
         {
             _userManager = userManager;
             _fileAccessor = fileAccessor;
             _folderAccessor = folderAccessor;
+            _storageQuotaService = storageQuotaService;
             _mapper = mapper;
         }
 
@@ -89,15 +94,28 @@ namespace WebAPIClient.Controllers
             // Get actual file and folder counts
             var files = await _fileAccessor.GetByUserIdAsync(userId);
             var folders = await _folderAccessor.GetByUserIdAsync(userId);
-            
+
             var totalFiles = files.Count();
             var totalFolders = folders.Count();
+
+            // Get storage limit from active subscription
+            long storageLimit = DEFAULT_STORAGE_LIMIT;
+            try
+            {
+                var quotaInfo = await _storageQuotaService.GetQuotaInfoAsync(userId);
+                storageLimit = quotaInfo.TotalStorageLimit;
+            }
+            catch
+            {
+                // If no active subscription, use default 5GB
+                storageLimit = DEFAULT_STORAGE_LIMIT;
+            }
 
             var response = new StorageUsageResponse
             {
                 StorageUsed = user.StorageUsed,
-                StorageLimit = 5368709120, // Default 5GB, should be fetched from active subscription
-                UsagePercentage = (user.StorageUsed / (double)5368709120) * 100,
+                StorageLimit = storageLimit,
+                UsagePercentage = (user.StorageUsed / (double)storageLimit) * 100,
                 TotalFiles = totalFiles,
                 TotalFolders = totalFolders
             };
@@ -119,15 +137,28 @@ namespace WebAPIClient.Controllers
             // Get actual file and folder counts
             var files = await _fileAccessor.GetByUserIdAsync(userId);
             var folders = await _folderAccessor.GetByUserIdAsync(userId);
-            
+
             var totalFiles = files.Count();
             var totalFolders = folders.Count();
+
+            // Get storage limit from active subscription
+            long storageLimit = DEFAULT_STORAGE_LIMIT;
+            try
+            {
+                var quotaInfo = await _storageQuotaService.GetQuotaInfoAsync(userId);
+                storageLimit = quotaInfo.TotalStorageLimit;
+            }
+            catch
+            {
+                // If no active subscription, use default 5GB
+                storageLimit = DEFAULT_STORAGE_LIMIT;
+            }
 
             var response = new DashboardStatsResponse
             {
                 StorageUsed = user.StorageUsed,
-                StorageLimit = 5368709120,
-                StoragePercentage = (int)((user.StorageUsed / (double)5368709120) * 100),
+                StorageLimit = storageLimit,
+                StoragePercentage = (int)((user.StorageUsed / (double)storageLimit) * 100),
                 TotalFiles = totalFiles,
                 TotalFolders = totalFolders
             };
@@ -146,7 +177,7 @@ namespace WebAPIClient.Controllers
                 return NotFound(new { Message = "User not found" });
             }
 
-        
+
             user.IsDeleted = true;
             user.DeletedAt = DateTime.UtcNow;
             user.UpdatedAt = DateTime.UtcNow;

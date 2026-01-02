@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using DataAccessLayer.Accessors;
 using ModelLibrary.Models;
 using ServiceLayer.Interfaces;
+using ServiceLayer.Exceptions;
 using PersistenceLayer;
 using LoggingLayer;
 using FileModel = ModelLibrary.Models.File;
@@ -20,6 +22,7 @@ public class FileService : IFileService
     private readonly FolderAccessor _folderAccessor;
     private readonly PlanAccessor _planAccessor;
     private readonly SubscriptionAccessor _subscriptionAccessor;
+    private readonly IStorageQuotaService _storageQuotaService;
     private readonly WebStorageContext _context;
     private readonly ILogger<FileService> _logger;
 
@@ -30,6 +33,7 @@ public class FileService : IFileService
         FolderAccessor folderAccessor,
         PlanAccessor planAccessor,
         SubscriptionAccessor subscriptionAccessor,
+        IStorageQuotaService storageQuotaService,
         WebStorageContext context,
         ILogger<FileService> logger)
     {
@@ -39,6 +43,7 @@ public class FileService : IFileService
         _folderAccessor = folderAccessor;
         _planAccessor = planAccessor;
         _subscriptionAccessor = subscriptionAccessor;
+        _storageQuotaService = storageQuotaService;
         _context = context;
         _logger = logger;
     }
@@ -48,7 +53,7 @@ public class FileService : IFileService
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             // Verify ownership
             if (file == null || file.UserId != userId)
                 return null;
@@ -167,12 +172,61 @@ public class FileService : IFileService
         }
     }
 
+    public async Task<FileModel> UploadFileAsync(int userId, int? folderId, IFormFile file, string displayFileName, string? visibility, string uploadsBasePath)
+    {
+        try
+        {
+            if (file == null || file.Length == 0)
+                throw new InvalidOperationException("No file provided or file is empty");
+
+            // Create uploads directory structure
+            var uploadsDir = Path.Combine(uploadsBasePath, "uploads", userId.ToString());
+            Directory.CreateDirectory(uploadsDir);
+
+            // Generate unique filename to avoid collisions
+            var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+            var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+            // Save file to disk
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Calculate storage path for database
+            var storagePath = Path.Combine("uploads", userId.ToString(), uniqueFileName);
+
+            // Call the existing upload method with the calculated path
+            var uploadedFile = await UploadFileAsync(
+                userId,
+                folderId,
+                displayFileName ?? file.FileName,
+                file.Length,
+                storagePath,
+                file.ContentType,
+                visibility
+            );
+
+            return uploadedFile;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(nameof(UploadFileAsync), ex, $"userId: {userId}, fileName: {file?.FileName}");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(nameof(UploadFileAsync), ex, $"userId: {userId}, fileName: {file?.FileName}");
+            throw;
+        }
+    }
+
     public async Task<FileModel> UpdateFileAsync(int id, int userId, string? fileName = null, string? visibility = null, int? folderId = null)
     {
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             if (file == null || file.UserId != userId)
                 throw new InvalidOperationException("File not found or does not belong to user");
 
@@ -189,7 +243,7 @@ public class FileService : IFileService
                 var folder = await _folderAccessor.GetByIdAsync(folderId.Value);
                 if (folder == null || folder.UserId != userId)
                     throw new InvalidOperationException("Folder not found or does not belong to user");
-                
+
                 file.FolderId = folderId;
             }
 
@@ -210,7 +264,7 @@ public class FileService : IFileService
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             if (file == null || file.UserId != userId)
                 return false;
 
@@ -245,7 +299,7 @@ public class FileService : IFileService
         try
         {
             var file = await _fileAccessor.GetByIdAsync(id);
-            
+
             if (file == null || file.UserId != userId)
                 return null;
 
@@ -324,28 +378,18 @@ public class FileService : IFileService
     {
         try
         {
-            // Get active subscription and plan limits
-            var subscription = await _subscriptionAccessor.GetActiveSubscriptionByUserIdAsync(userId);
-            if (subscription == null)
-            {
-                // Allow upload if no subscription (free tier or default)
-                return;
-            }
-
-            var plan = await _planAccessor.GetByIdAsync(subscription.PlanId);
-            if (plan == null)
-                throw new InvalidOperationException("Plan not found");
-
-            if (addedBytes > plan.MaxFileSize)
-                throw new InvalidOperationException($"File size ({addedBytes} bytes) exceeds plan's max file size ({plan.MaxFileSize} bytes)");
-
-            var currentUsage = await _fileAccessor.GetTotalSizeByUserAsync(userId);
-            if (currentUsage + addedBytes > plan.LimitSize)
-                throw new InvalidOperationException($"Total storage ({currentUsage + addedBytes} bytes) exceeds plan storage capacity ({plan.LimitSize} bytes)");
+            // Use StorageQuotaService to validate upload against plan limits
+            // This will throw typed exceptions if limits are exceeded
+            await _storageQuotaService.ValidateUploadAsync(userId, addedBytes);
+        }
+        catch (StorageException)
+        {
+            // Re-throw storage exceptions (FileTooLargeException, QuotaExceededException, etc.)
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(nameof(ValidatePlanLimitsAsync), ex, $"userId: {userId}, addedBytes: {addedBytes}");
+            _logger.LogError(ex, $"Error validating plan limits for userId: {userId}, addedBytes: {addedBytes}");
             throw;
         }
     }

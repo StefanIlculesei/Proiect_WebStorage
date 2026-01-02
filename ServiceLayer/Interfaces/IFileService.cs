@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using ModelLibrary.Models;
 using FileModel = ModelLibrary.Models.File;
 
@@ -13,6 +14,7 @@ public interface IFileService
     Task<IReadOnlyList<FileModel>> SearchByNameAsync(int userId, string searchTerm);
     Task<IReadOnlyList<FileModel>> GetRecentFilesAsync(int userId, int limit = 10);
     Task<FileModel> UploadFileAsync(int userId, int? folderId, string fileName, long fileSize, string storagePath, string? mimeType, string? visibility);
+    Task<FileModel> UploadFileAsync(int userId, int? folderId, IFormFile file, string displayFileName, string? visibility, string uploadsBasePath);
     Task<FileModel> UpdateFileAsync(int id, int userId, string? fileName = null, string? visibility = null, int? folderId = null);
     Task<bool> DeleteFileAsync(int id, int userId);
     Task<FileModel?> MoveFileAsync(int id, int userId, int? targetFolderId);
