@@ -28,8 +28,8 @@ namespace WebMVC_Plans.Controllers
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-    // GET /Subscriptions
-    [HttpGet("")]
+        // GET /Subscriptions
+        [HttpGet("")]
         public async Task<IActionResult> Index()
         {
             try
@@ -69,9 +69,9 @@ namespace WebMVC_Plans.Controllers
                 return View(new List<SubscriptionViewModel>());
             }
         }
-    // GET /Subscriptions/Details/{id}
-    [HttpGet("Details/{id?}")]
-    public async Task<IActionResult> Details(int? id)
+        // GET /Subscriptions/Details/{id}
+        [HttpGet("Details/{id?}")]
+        public async Task<IActionResult> Details(int? id)
         {
             if (id == null || id <= 0)
             {
@@ -97,8 +97,8 @@ namespace WebMVC_Plans.Controllers
                 // Manually populate names if navigation properties are missing
                 if (subscription.User == null)
                 {
-                     var user = await _accesorUser.GetByIdAsync(subscription.UserId);
-                     subscriptionViewModel.UserName = user?.UserName;
+                    var user = await _accesorUser.GetByIdAsync(subscription.UserId);
+                    subscriptionViewModel.UserName = user?.UserName;
                 }
                 if (subscription.Plan == null)
                 {
@@ -165,7 +165,7 @@ namespace WebMVC_Plans.Controllers
             try
             {
                 var nowUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
-                
+
                 // Ensure dates are UTC
                 if (model.StartDate.HasValue)
                 {
@@ -188,7 +188,7 @@ namespace WebMVC_Plans.Controllers
                         var plan = await _accesorPlan.GetByIdAsync(model.PlanId);
                         var baseStart = model.StartDate.Value;
                         var period = plan?.BillingPeriod?.Trim().ToLowerInvariant();
-                        
+
                         model.EndDate = period switch
                         {
                             "monthly" => baseStart.AddMonths(1),
@@ -228,7 +228,46 @@ namespace WebMVC_Plans.Controllers
             }
         }
 
-       
+        // POST /Subscriptions/Delete/{id}
+        [HttpPost("Delete/{id?}")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null || id <= 0)
+            {
+                _logger.LogWarning("Invalid subscription ID provided for delete: {Id}", id);
+                TempData["ErrorMessage"] = "Invalid subscription ID.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                _logger.LogInformation("Attempting to hard delete subscription with ID: {Id}", id);
+
+                var subscription = await _accesorSubscription.GetByIdAsync(id.Value);
+
+                if (subscription == null)
+                {
+                    _logger.LogWarning("Subscription with ID {Id} not found for deletion", id);
+                    TempData["ErrorMessage"] = $"Subscription with ID {id} was not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                await _accesorSubscription.DeleteAsync(subscription);
+                await _accesorSubscription.SaveChangesAsync();
+
+                _logger.LogInformation("Successfully hard deleted subscription with ID: {Id}", id);
+                TempData["SuccessMessage"] = "Subscription was deleted successfully.";
+
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting subscription with ID: {Id}", id);
+                TempData["ErrorMessage"] = "An error occurred while deleting the subscription. Please try again.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
     }
 
 }

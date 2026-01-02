@@ -12,6 +12,32 @@ namespace DataAccessLayer.Accessors
         {
         }
 
+        public override async Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await _dbSet.Where(u => !u.IsDeleted).ToListAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(nameof(GetAllAsync), ex);
+                throw;
+            }
+        }
+
+        public override async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await _dbSet.FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(nameof(GetByIdAsync), ex, $"id: {id}");
+                throw;
+            }
+        }
+
         public async Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
         {
             try
@@ -64,6 +90,26 @@ namespace DataAccessLayer.Accessors
             catch (Exception ex)
             {
                 _logger.LogError(nameof(GetStorageUsedAsync), ex, $"userId: {userId}");
+                throw;
+            }
+        }
+
+        public async Task<User?> SoftDeleteAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var user = await _dbSet.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, cancellationToken);
+                if (user == null) return null;
+
+                user.IsDeleted = true;
+                user.DeletedAt = DateTime.UtcNow;
+                user.UpdatedAt = DateTime.UtcNow;
+                _dbSet.Update(user);
+                return user;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(nameof(SoftDeleteAsync), ex, $"userId: {userId}");
                 throw;
             }
         }

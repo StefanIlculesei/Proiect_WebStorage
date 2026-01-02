@@ -108,5 +108,44 @@ namespace WebMVC_Plans.Controllers
                 return View(model);
             }
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null || id <= 0)
+            {
+                _logger.LogWarning("Invalid user ID provided for delete: {Id}", id);
+                TempData["ErrorMessage"] = "Invalid user ID.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                _logger.LogInformation("Attempting to soft delete user with ID: {Id}", id);
+
+                var user = await _userAccessor.SoftDeleteAsync(id.Value);
+
+                if (user == null)
+                {
+                    _logger.LogWarning("User with ID {Id} not found for deletion", id);
+                    TempData["ErrorMessage"] = $"User with ID {id} was not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                await _userAccessor.SaveChangesAsync();
+
+                _logger.LogInformation("Successfully soft deleted user: {UserName}", user.UserName);
+                TempData["SuccessMessage"] = $"User '{user.UserName}' was deleted successfully.";
+
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting user with ID: {Id}", id);
+                TempData["ErrorMessage"] = "An error occurred while deleting the user. Please try again.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
     }
 }

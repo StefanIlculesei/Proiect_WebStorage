@@ -39,12 +39,12 @@ namespace WebMVC_Plans.Controllers
                 var countMap = await _accesorSubscription.GetActiveCountsByPlanIdsAsync(planIds);
 
                 var planViewModels = _mapper.Map<List<PlanViewModel>>(plans);
-                
+
                 foreach (var vm in planViewModels)
                 {
                     vm.SubscriptionCount = countMap.TryGetValue(vm.Id, out var c) ? c : 0;
                 }
-                
+
                 planViewModels = planViewModels.OrderBy(p => p.Price).ToList();
 
                 _logger.LogInformation("Successfully retrieved {Count} plans", planViewModels.Count);
@@ -84,9 +84,11 @@ namespace WebMVC_Plans.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-
                 var planViewModel = _mapper.Map<PlanViewModel>(plan);
-                planViewModel.SubscriptionCount = plan.Subscriptions?.Count ?? 0;
+
+                // Get active subscription count for consistency with Index page
+                var countMap = await _accesorSubscription.GetActiveCountsByPlanIdsAsync(new List<int> { id.Value });
+                planViewModel.SubscriptionCount = countMap.TryGetValue(id.Value, out var count) ? count : 0;
 
                 _logger.LogInformation("Successfully retrieved plan: {PlanName}", plan.Name);
 
@@ -99,7 +101,7 @@ namespace WebMVC_Plans.Controllers
                 return RedirectToAction(nameof(Index));
             }
         }
-        
+
         [HttpGet]
         public IActionResult Create()
         {
@@ -223,6 +225,45 @@ namespace WebMVC_Plans.Controllers
                 _logger.LogError(ex, "Error occurred while updating plan with ID: {Id}", model.Id);
                 ModelState.AddModelError("", "An error occurred while updating the plan. Please try again.");
                 return View(model);
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null || id <= 0)
+            {
+                _logger.LogWarning("Invalid plan ID provided for delete: {Id}", id);
+                TempData["ErrorMessage"] = "Invalid plan ID.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                _logger.LogInformation("Attempting to soft delete plan with ID: {Id}", id);
+
+                var plan = await _accesorPlan.SoftDeleteAsync(id.Value);
+
+                if (plan == null)
+                {
+                    _logger.LogWarning("Plan with ID {Id} not found for deletion", id);
+                    TempData["ErrorMessage"] = $"Plan with ID {id} was not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                await _accesorPlan.SaveChangesAsync();
+
+                _logger.LogInformation("Successfully soft deleted plan: {PlanName}", plan.Name);
+                TempData["SuccessMessage"] = $"Plan '{plan.Name}' was deleted successfully.";
+
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting plan with ID: {Id}", id);
+                TempData["ErrorMessage"] = "An error occurred while deleting the plan. Please try again.";
+                return RedirectToAction(nameof(Index));
             }
         }
     }

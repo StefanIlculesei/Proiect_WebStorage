@@ -42,6 +42,12 @@ namespace ModelLibrary.Models
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
 
+        [Column("is_deleted")]
+        public bool IsDeleted { get; set; } = false;
+
+        [Column("deleted_at")]
+        public DateTime? DeletedAt { get; set; }
+
         // Navigation properties
         public virtual ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
     }
